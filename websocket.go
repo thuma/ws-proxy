@@ -19,7 +19,7 @@ func close(conn *websocket.Conn){
         websocket.CloseMessage,
         websocket.FormatCloseMessage(
             websocket.CloseGoingAway,
-            ""), 
+            ""),
         time.Now().Add(time.Second))
 }
 
@@ -52,7 +52,12 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	l, err := net.ListenMulticastUDP("udp", nil, addr)
+        iface, err := net.InterfaceByName("lo")
+        if err != nil {
+          log.Println(err)
+          return
+        }
+	l, err := net.ListenMulticastUDP("udp", iface, addr)
 	l.SetReadBuffer(1500)
 	for {
 		b := make([]byte, 1500)
