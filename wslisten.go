@@ -1,10 +1,11 @@
 package main
 
 import (
-	"net"
-	"github.com/gorilla/websocket"
 	"log"
-        "strings"
+	"net"
+	"strings"
+
+	"github.com/gorilla/websocket"
 )
 
 func wsListen() {
@@ -13,25 +14,27 @@ func wsListen() {
 		log.Fatal(err)
 	}
 
-        laddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:9998")
-        if err != nil {
-                log.Fatal(err)
-        }
+	laddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:9998")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	udpConn, _ := net.DialUDP("udp", laddr, addr)
-	log.Println("Listen:", ws_url)
-	wsconn, _, err := websocket.DefaultDialer.Dial(ws_url, nil)
-	if err != nil {
-		log.Fatal("dial:", err)
-	}
-	defer wsconn.Close()
-
 	for {
-		_, message, err := wsconn.ReadMessage()
+		log.Println("Listen:", ws_url)
+		wsconn, _, err := websocket.DefaultDialer.Dial(ws_url, nil)
 		if err != nil {
-			log.Println("read:", err)
-			return
+			log.Fatal("dial:", err)
 		}
-		udpConn.Write([]byte(strings.Trim(string(message), "\n\r")))
+		defer wsconn.Close()
+		for {
+			_, message, err := wsconn.ReadMessage()
+			if err != nil {
+				log.Println("read:", err)
+				break
+			}
+			udpConn.Write([]byte(strings.Trim(string(message), "\n\r")))
+		}
+		wsconn.Close()
 	}
 }

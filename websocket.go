@@ -1,73 +1,61 @@
 package main
 
 import (
-    "net/http"
-    "time"
-    "github.com/gorilla/websocket"
 	"log"
 	"net"
+	"net/http"
+
+	"github.com/gorilla/websocket"
 )
 
 var upgrader = websocket.Upgrader{
-    ReadBufferSize:  1024,
-    WriteBufferSize: 1024,
-    CheckOrigin: func(r *http.Request) bool { return true },
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
-func close(conn *websocket.Conn){
-    conn.WriteControl(
-        websocket.CloseMessage,
-        websocket.FormatCloseMessage(
-            websocket.CloseGoingAway,
-            ""),
-        time.Now().Add(time.Second))
-}
-
-func send(conn *websocket.Conn, message []byte) (bool){
-    err := conn.WriteMessage(websocket.TextMessage, message)
-    if err != nil {
-        return false
-    }
-    return true
+func send(conn *websocket.Conn, message []byte) bool {
+	err := conn.WriteMessage(websocket.TextMessage, message)
+	return err == nil
 }
 
 func readLoop(c *websocket.Conn) {
-    for {
-		_, _, err := c.NextReader();
-        if err != nil {
-            c.Close()
-            break
-        }
-    }
+	for {
+		_, _, err := c.NextReader()
+		if err != nil {
+			c.Close()
+			return
+		}
+	}
 }
 
 func wsHandler(w http.ResponseWriter, r *http.Request) {
-    conn, err := upgrader.Upgrade(w, r, nil)
-    if err != nil {
-        log.Println(err)
-        return
-    }
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 	go readLoop(conn)
 	addr, err := net.ResolveUDPAddr("udp", "224.0.0.1:9999")
 	if err != nil {
 		log.Fatal(err)
 	}
-        iface, err := net.InterfaceByName("lo")
-        if err != nil {
-          log.Println(err)
-          return
-        }
-	l, err := net.ListenMulticastUDP("udp", iface, addr)
+	iface, err := net.InterfaceByName(ifacename)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	l, _ := net.ListenMulticastUDP("udp", iface, addr)
 	l.SetReadBuffer(1500)
 	for {
-		b := make([]byte, 1500)
-		_, _, err := l.ReadFromUDP(b)
+		messagedata := make([]byte, 1500)
+		_, _, err := l.ReadFromUDP(messagedata)
 		if err != nil {
 			log.Fatal("ReadFromUDP failed:", err)
 		}
-		err = conn.WriteMessage(websocket.TextMessage, b)
-		if err != nil {
-			break
+		if send(conn, messagedata) {
+			conn.Close()
+			return
 		}
 	}
 
