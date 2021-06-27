@@ -16,7 +16,7 @@ var upgrader = websocket.Upgrader{
 
 func send(conn *websocket.Conn, message []byte) bool {
 	err := conn.WriteMessage(websocket.TextMessage, message)
-	return err == nil
+	return err != nil
 }
 
 func readLoop(c *websocket.Conn) {
